@@ -91,10 +91,12 @@ namespace CCBot
 
             foreach (var players in playerChunks)
             {
-                players.Select(player => embedBuilder.AddField(
-                    player.user.Mention + "(" + player.user.Nickname + ")",
-                    player.Emoji.GetDiscordName(), true)
-                    );
+                foreach (var player in players)
+                {
+                    embedBuilder.AddField(
+                                        player.user.Mention + "(" + player.user.Nickname + ")",
+                                        player.Emoji.GetDiscordName(), true);
+                }
                 var message = await ctx.RespondAsync(embed: embedBuilder.Build());
                 foreach (var emoji in players.Select(player => player.Emoji))
                 {
