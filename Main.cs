@@ -82,43 +82,25 @@ namespace CCBot
                 throw new Exception();
             }
 
-            var v = new DiscordEmbedBuilder();
-            v.WithTitle(Title);
-            v.WithDescription(Description);
-            v.WithFooter("Vote by clicking the Reactions below.");
+            var playerChunks = Dependencies.Settings.SignedUpPlayers.Chunk(20);
 
-            var p = Dependencies.Settings.SignedUpPlayers;
-            var p2 = new List<DiscordEmoji>();
-            int i = 0;
-            while(p.Count != 0)
+            var embedBuilder = new DiscordEmbedBuilder()
+                .WithTitle(Title)
+                .WithDescription(Description)
+                .WithFooter("Vote by clicking the Reactions below.");
+
+            foreach (var players in playerChunks)
             {
-                var v2 = p[0];
-                v.AddField(v2.Emoji.GetDiscordName(), v2.user.Username, true);
-                p2.Add(v2.Emoji);
-                p.Remove(v2);
-                i++;
-                if (i == 20)
+                players.Select(player => embedBuilder.AddField(
+                    player.user.Mention + "(" + player.user.Nickname + ")",
+                    player.Emoji.GetDiscordName(), true)
+                    );
+                var message = await ctx.RespondAsync(embed: embedBuilder.Build());
+                foreach (var emoji in players.Select(player => player.Emoji))
                 {
-                    i = 0;
-                    var v5 = await ctx.RespondAsync(embed: v.Build());
-                    foreach (var v4 in p2)
-                    {
-                        await v5.CreateReactionAsync(v4);
-                    }
-                    p2 = new List<DiscordEmoji>();
-                    v.ClearFields();
+                    await message.CreateReactionAsync(emoji);
                 }
-            }
-            if (i != 0)
-            {
-                i = 0;
-                var v5 = await ctx.RespondAsync(embed: v.Build());
-                foreach (var v4 in p2)
-                {
-                    await v5.CreateReactionAsync(v4);
-                }
-                p2 = new List<DiscordEmoji>();
-                v.ClearFields();
+                embedBuilder.ClearFields();
             }
         }
 
