@@ -19,7 +19,7 @@ namespace CCBot
         {
             if (_category == null || _category.Children.Count() >= 40)
             {
-                _category = await Dependencies.Settings.MainGuild.CreateChannelAsync($"S{Dependencies.Settings.SeasonNumber} Secret Channels", ChannelType.Category);
+                _category = await Dependencies.Settings.MainGuild.CreateChannelAsync($"S{Dependencies.Settings.SeasonNumber} Conspiracy Channel", ChannelType.Category);
             }
 
             return _category;
@@ -47,6 +47,10 @@ namespace CCBot
             await ctx.RespondAsync("What is the Dead Participant Role?");
             var m3 = await dep.Interactivity.WaitForMessageAsync(x => x.MentionedRoles.Count == 1, new TimeSpan(100, 0, 0));
             Dependencies.Settings.DeadParticipantRole = m3.MentionedRoles[0];
+
+            await ctx.RespondAsync("What is the Frozen Participant Role?");
+            var m5 = await dep.Interactivity.WaitForMessageAsync(x => x.MentionedRoles.Count == 1, new TimeSpan(100, 0, 0));
+            Dependencies.Settings.FrozenPlayerRole = m5.MentionedRoles[0];
 
             await ctx.RespondAsync("And last, the Season number?");
             var m4 = await dep.Interactivity.WaitForMessageAsync(x => x.Content != "");
@@ -155,27 +159,31 @@ namespace CCBot
                 throw new Exception();
             }
 
-            var v = Members.ToList();
-            v.Add(ctx.Member);
-
-            for (int a = 0; a < v.Count; a++)
+            if (!Members.Any(x => x.Roles.Contains(Dependencies.Settings.AliveParticipantRole)))
             {
-                for (int b = 0; b < v.Count; b++)
+                await ctx.RespondAsync("Sorry, Participants only!");
+                throw new Exception();
+            }
+
+            var members = Members.ToList();
+
+            for (int a = 0; a < members.Count; a++)
+            {
+                for (int b = 0; b < members.Count; b++)
                 {
                     if (a != b)
                     {
-                        if (v[a].Id == v[b].Id)
+                        if (members[a].Id == members[b].Id)
                         {
-                            v.Remove(v[b]);
+                            members.Remove(members[b]);
                         }
                     }
                 }
             }
 
-            var members = v;
             members.Remove(ctx.Member);
 
-            var newChannel = await g.CreateChannelAsync(Name, ChannelType.Text, parent: await GetOrCreateCategory(), overwrites: GetOverwrites(v, g, Dependencies.Settings));
+            var newChannel = await g.CreateChannelAsync("S" + Dependencies.Settings.SeasonNumber + "_" + Name, ChannelType.Text, parent: await GetOrCreateCategory(), overwrites: GetOverwrites(members, g, ctx.Member));
             var cc = new CC(ctx.Member, members, newChannel);
             await newChannel.SendMessageAsync("Look, look! Over @here, a new **conspiracy channel** has been created!", embed: GetListEmbed(cc));
             Dependencies.Settings.Channels.Add(cc);
@@ -396,8 +404,10 @@ namespace CCBot
             }
         }
 
-        private List<DiscordOverwriteBuilder> GetOverwrites(List<DiscordMember> v, DiscordGuild guild, Settings setting)
+        private List<DiscordOverwriteBuilder> GetOverwrites(List<DiscordMember> v, DiscordGuild guild, DiscordMember owner)
         {
+            v.Add(owner);
+
             List<DiscordOverwriteBuilder> res = new List<DiscordOverwriteBuilder>();
             //@everyone - READ FALSE, WRITE FALSE
             DiscordOverwriteBuilder v1 = new DiscordOverwriteBuilder();
@@ -408,26 +418,26 @@ namespace CCBot
 
             //Frozen - WRITE FALSE
             DiscordOverwriteBuilder v7 = new DiscordOverwriteBuilder();
-            v7.For(setting.FrozenPlayerRole);
+            v7.For(Dependencies.Settings.FrozenPlayerRole);
             v7.Deny(Permissions.SendMessages);
             res.Add(v7);
 
             //Participant - WRITE TRUE
             DiscordOverwriteBuilder v2 = new DiscordOverwriteBuilder();
-            v2.For(setting.AliveParticipantRole);
+            v2.For(Dependencies.Settings.AliveParticipantRole);
             v2.Allow(Permissions.SendMessages);
             res.Add(v2);
 
             //Dead - Read TRUE, Write FALSE
             DiscordOverwriteBuilder v3 = new DiscordOverwriteBuilder();
-            v3.For(setting.DeadParticipantRole);
+            v3.For(Dependencies.Settings.DeadParticipantRole);
             v3.Allow(Permissions.AccessChannels);
             v3.Deny(Permissions.SendMessages);
             res.Add(v3);
 
             //GM - Read TRUE, Write True
             DiscordOverwriteBuilder v4 = new DiscordOverwriteBuilder();
-            v4.For(setting.GameMasterRole);
+            v4.For(Dependencies.Settings.GameMasterRole);
             v4.Allow(Permissions.SendMessages);
             v4.Allow(Permissions.AccessChannels);
             res.Add(v4);
